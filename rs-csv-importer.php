@@ -7,7 +7,7 @@ Author: Takuro Hishikawa, wokamoto
 Author URI: http://notnil-creative.com/
 Text Domain: rs-csv-importer
 License: GPL version 2 or later - http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
-Version: 0.4.2
+Version: 0.5
 */
 
 if ( !defined('WP_LOAD_IMPORTERS') )
@@ -272,6 +272,10 @@ class RS_CSV_Importer extends WP_Importer {
 						}
 					}
 				}
+				
+				$post = apply_filters( 'really_simple_csv_importer_save_post', $post, $is_update );
+				$meta = apply_filters( 'really_simple_csv_importer_save_meta', $meta, $post, $is_update );
+				$tax = apply_filters( 'really_simple_csv_importer_save_tax', $tax, $post, $is_update );
 				
 				$result = $this->save_post($post,$meta,$tax,$is_update);
 				if (!$result) {
