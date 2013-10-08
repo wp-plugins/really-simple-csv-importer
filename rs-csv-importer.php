@@ -7,7 +7,7 @@ Author: Takuro Hishikawa, wokamoto
 Author URI: http://notnil-creative.com/
 Text Domain: rs-csv-importer
 License: GPL version 2 or later - http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
-Version: 0.5
+Version: 0.5.1
 */
 
 if ( !defined('WP_LOAD_IMPORTERS') )
@@ -91,12 +91,16 @@ class RS_CSV_Importer extends WP_Importer {
 			return $result;
 	}
 	
-	/** Insert post and postmeta using wp_post_helper
+	/**
+	* Insert post and postmeta using wp_post_helper.
+	*
+	* More information: https://gist.github.com/4084471
+	*
 	* @param array $post
 	* @param array $meta
 	* @param array $terms
 	* @param bool $is_update
-	* More information: https://gist.github.com/4084471
+	* @return int|false Saved post id. If failed, return false.
 	*/
 	function save_post($post,$meta,$terms,$is_update) {
 		$ph = new wp_post_helper($post);
@@ -150,19 +154,32 @@ class RS_CSV_Importer extends WP_Importer {
 				$h->parse_columns( $this, $data );
 				$is_first = false;
 			} else {
+				echo '<li>';
+				
 				$post = array();
 				$is_update = false;
+				$error = new WP_Error();
+				
+				// (string) post type
+				$post_type = $h->get_data($this,$data,'post_type');
+				if ($post_type) {
+					$post['post_type'] = $post_type;
+				}
 				
 				// (int) post id
 				$post_id = $h->get_data($this,$data,'ID');
 				$post_id = ($post_id) ? $post_id : $h->get_data($this,$data,'post_id');
 				if ($post_id) {
 					$post_exist = get_post($post_id);
-					if ( is_null( $post_exist ) ) {
+					if ( is_null( $post_exist ) ) { // if the post id is not exists
 						$post['import_id'] = $post_id;
 					} else {
-						$post['ID'] = $post_id;
-						$is_update = true;
+						if ( !$post_type || $post_exist->post_type == $post_type ) {
+							$post['ID'] = $post_id;
+							$is_update = true;
+						} else {
+							$error->add( 'post_type_check', sprintf(__('The post id %d is exists, but post types does not match.', 'rs-csv-importer'), $post_id) );
+						}
 					}
 				}
 				
@@ -190,12 +207,6 @@ class RS_CSV_Importer extends WP_Importer {
 				$post_date = $h->get_data($this,$data,'post_date');
 				if ($post_date) {
 					$post['post_date'] = date("Y-m-d H:i:s", strtotime($post_date));
-				}
-				
-				// (string) post type
-				$post_type = $h->get_data($this,$data,'post_type');
-				if ($post_type) {
-					$post['post_type'] = $post_type;
 				}
 				
 				// (string) post status
@@ -255,6 +266,7 @@ class RS_CSV_Importer extends WP_Importer {
 				$meta = array();
 				$tax = array();
 
+				// add any other data to post meta
 				foreach ($data as $key => $value) {
 					if (!empty($value) && isset($this->column_keys[$key])) {
 						// check if meta is custom taxonomy
@@ -273,16 +285,43 @@ class RS_CSV_Importer extends WP_Importer {
 					}
 				}
 				
+				/**
+				 * Filter post data.
+				 *
+				 * @param array $post (required)
+				 * @param bool $is_update
+				 */
 				$post = apply_filters( 'really_simple_csv_importer_save_post', $post, $is_update );
+				/**
+				 * Filter meta data.
+				 *
+				 * @param array $meta (required)
+				 * @param array $post
+				 * @param bool $is_update
+				 */
 				$meta = apply_filters( 'really_simple_csv_importer_save_meta', $meta, $post, $is_update );
+				/**
+				 * Filter taxonomy data.
+				 *
+				 * @param array $tax (required)
+				 * @param array $post
+				 * @param bool $is_update
+				 */
 				$tax = apply_filters( 'really_simple_csv_importer_save_tax', $tax, $post, $is_update );
 				
+				// save post data
 				$result = $this->save_post($post,$meta,$tax,$is_update);
 				if (!$result) {
-					echo '<li>'.sprintf(__('An error occurred during processing %s', 'rs-csv-importer'), esc_html($post_title)).'</li>';
-				} else {
-					echo '<li>'.esc_html($post_title).'</li>';
+					$error->add( 'save_post', sprintf(__('An error occurred while saving the post to database.', 'rs-csv-importer')) );
 				}
+				
+				// show results
+				foreach ($error->get_error_messages() as $message) {
+					echo esc_html($message).'<br>';
+				}
+				echo esc_html(sprintf(__('Processing "%s" done.', 'rs-csv-importer'), $post_title));
+				
+				echo '</li>';
 			}
 		}
 		
