@@ -3,7 +3,7 @@ Contributors: hissy, wokamoto
 Tags: importer, csv, acf
 Requires at least: 3.0
 Tested up to: 3.6.1
-Stable tag: 0.5.1
+Stable tag: 0.5.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,19 +35,19 @@ Contains CSV file samples in `/wp-content/plugins/really-simple-csv-importer/sam
 * `post_parent`: (int) The post parent id. Used for page or hierarchical post type.
 * `menu_order`: (int)
 * `post_type`: ('post' or 'page' or any other post type name)
+* `post_thumbnail`: (string) The uri or path of the post thumbnail.  
+  E.g. http://example.com/example.jpg or /path/to/example.jpg
 * `post_category`: (string, comma divided) slug of post categories
 * `post_tags`: (string, comma divided) name of post tags
 * `{custom_field}`: (string) any other column labels used as custom field
 * `{tax_$taxonomy}`: (string, comma divided) any field prefixed with tax_ in the "custom_field" area will be used as a custom taxonomy. Entries are names, not slugs
 
-Note: To set the page template of a page, use custom field key of `_wp_page_template`.
+Note: To set the page template of a page, use custom field key of `_wp_page_template`.  
 Note: If providing a post_status of 'future' you must specify the post_date in order for WordPress to know when to publish your post.
 
 = Advanced Custom Fields plugin integrate =
 If advanced custom field key is exists, importer will trying to use [update_field](http://www.advancedcustomfields.com/resources/functions/update_field/) function instead of built-in add_post_meta function.  
 How to find advanced custom field key: [Finding the field key](http://www.advancedcustomfields.com/resources/functions/update_field/#finding-the%20field%20key)
-
-Note: multiple value is not supported yet.
 
 = Official public repository =
 Add star and read future issues about rs-csv-importer on [GitHub](https://github.com/hissy/rs-csv-importer)!
@@ -59,7 +59,31 @@ Add star and read future issues about rs-csv-importer on [GitHub](https://github
 3. Go to the Import page under Tools menu.
 4. Click CSV link, read the notification, then just upload and import.
 
-== How to customize import rules == 
+== Frequently Asked Questions ==
+
+= Should I fill all columns of post data? =
+
+No. Only columns you need.
+
+= Can I update existing post data? =
+
+Yes. Please use ID field.
+
+= Can I insert post with specific post id? =
+
+Yes. Please use ID field.
+
+= Why should I quote text cells when I save csv file? =
+
+Because PHP cannot read multibyte text cells in some cases.
+
+> Locale setting is taken into account by this function. If LANG is e.g. en_US.UTF-8, files in one-byte encoding are read wrong by this function.
+
+= Can I insert multiple value to ACF field like Select or Checkbox? =
+
+Yes. Please use `really_simple_csv_importer_save_meta` filter to make array data.
+
+== How to customize import post data == 
 
 There are three filters available in the importer.
 
@@ -153,6 +177,9 @@ add_filter( 'really_simple_csv_importer_save_tax', 'really_simple_csv_importer_s
 
 == Changelog ==
 
+= 0.5.2 =
+* New feature: Add Post Thumbnail support
+* Bug fixes
 = 0.5.1 =
 * Enhancement: Check whether both posts has same post type when updating.
 = 0.5 =

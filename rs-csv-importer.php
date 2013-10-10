@@ -4,10 +4,10 @@ Plugin Name: Really Simple CSV Importer
 Plugin URI: http://wordpress.org/plugins/really-simple-csv-importer/
 Description: Import posts, categories, tags, custom fields from simple csv file.
 Author: Takuro Hishikawa, wokamoto
-Author URI: http://notnil-creative.com/
+Author URI: https://en.digitalcube.jp/
 Text Domain: rs-csv-importer
 License: GPL version 2 or later - http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
-Version: 0.5.1
+Version: 0.5.2
 */
 
 if ( !defined('WP_LOAD_IMPORTERS') )
@@ -38,8 +38,8 @@ class RS_CSV_Importer extends WP_Importer {
 	/** Sheet columns
 	* @value array
 	*/
-	var $column_indexes = array();
-	var $column_keys = array();
+	public $column_indexes = array();
+	public $column_keys = array();
 
  	// User interface wrapper start
 	function header() {
@@ -99,10 +99,11 @@ class RS_CSV_Importer extends WP_Importer {
 	* @param array $post
 	* @param array $meta
 	* @param array $terms
+	* @param string $thumbnail The uri or path of thumbnail image.
 	* @param bool $is_update
 	* @return int|false Saved post id. If failed, return false.
 	*/
-	function save_post($post,$meta,$terms,$is_update) {
+	function save_post($post,$meta,$terms,$thumbnail,$is_update) {
 		$ph = new wp_post_helper($post);
 		
 		foreach ($meta as $key => $value) {
@@ -123,6 +124,8 @@ class RS_CSV_Importer extends WP_Importer {
 		foreach ($terms as $key => $value) {
 			$ph->add_terms($key, $value);
 		}
+		
+		if ($thumbnail) $ph->add_media($thumbnail,'','','',true);
 		
 		if ($is_update)
 			$result = $ph->update();
@@ -263,12 +266,17 @@ class RS_CSV_Importer extends WP_Importer {
 					}
 				}
 				
+				// (string) post thumbnail image uri
+				$post_thumbnail = $h->get_data($this,$data,'post_thumbnail');
+				if (parse_url($post_thumbnail, PHP_URL_SCHEME))
+					$post_thumbnail = remote_get_file($post_thumbnail);
+				
 				$meta = array();
 				$tax = array();
 
 				// add any other data to post meta
 				foreach ($data as $key => $value) {
-					if (!empty($value) && isset($this->column_keys[$key])) {
+					if ($value !== false && isset($this->column_keys[$key])) {
 						// check if meta is custom taxonomy
 						if (substr($this->column_keys[$key], 0, 4) == 'tax_') {
 							// (string, comma divided) name of custom taxonomies 
@@ -310,9 +318,9 @@ class RS_CSV_Importer extends WP_Importer {
 				$tax = apply_filters( 'really_simple_csv_importer_save_tax', $tax, $post, $is_update );
 				
 				// save post data
-				$result = $this->save_post($post,$meta,$tax,$is_update);
+				$result = $this->save_post($post,$meta,$tax,$post_thumbnail,$is_update);
 				if (!$result) {
-					$error->add( 'save_post', sprintf(__('An error occurred while saving the post to database.', 'rs-csv-importer')) );
+					$error->add( 'save_post', __('An error occurred while saving the post to database.', 'rs-csv-importer') );
 				}
 				
 				// show results
