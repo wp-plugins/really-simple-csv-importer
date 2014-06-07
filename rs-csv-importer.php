@@ -7,7 +7,7 @@ Author: Takuro Hishikawa, wokamoto
 Author URI: https://en.digitalcube.jp/
 Text Domain: rs-csv-importer
 License: GPL version 2 or later - http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
-Version: 0.5.6
+Version: 0.6
 */
 
 if ( !defined('WP_LOAD_IMPORTERS') )
@@ -56,15 +56,17 @@ class RS_CSV_Importer extends WP_Importer {
 	// Step 1
 	function greet() {
 		echo '<p>'.__( 'Choose a CSV (.csv) file to upload, then click Upload file and import.', 'rs-csv-importer' ).'</p>';
-		echo '<p>'.__( 'Maybe Excel-style CSV file is not best for import data. Follow export options below. LibreOffice might be good for you.', 'rs-csv-importer' ).'</p>';
+		echo '<p>'.__( 'Excel-style CSV file is unconventional and not recommended. LibreOffice has enough export options and recommended for most users.', 'rs-csv-importer' ).'</p>';
+		echo '<p>'.__( 'Requirements:', 'rs-csv-importer' ).'</p>';
 		echo '<ol>';
 		echo '<li>'.__( 'Select UTF-8 as charset.', 'rs-csv-importer' ).'</li>';
 		echo '<li>'.sprintf( __( 'You must use field delimiter as "%s"', 'rs-csv-importer'), RS_CSV_Helper::DELIMITER ).'</li>';
 		echo '<li>'.__( 'You must quote all text cells.', 'rs-csv-importer' ).'</li>';
 		echo '</ol>';
-		echo '<p>'.__( 'Sample CSV file download:', 'rs-csv-importer' );
+		echo '<p>'.__( 'Download example CSV files:', 'rs-csv-importer' );
 		echo ' <a href="'.plugin_dir_url( __FILE__ ).'sample/sample.csv">'.__( 'csv', 'rs-csv-importer' ).'</a>,';
-		echo ' <a href="'.plugin_dir_url( __FILE__ ).'sample/sample.ods">'.__( 'ods (OpenDocument Spreadsheet file format)', 'rs-csv-importer' ).'</a>';
+		echo ' <a href="'.plugin_dir_url( __FILE__ ).'sample/sample.ods">'.__( 'ods', 'rs-csv-importer' ).'</a>';
+		echo ' '.__('(OpenDocument Spreadsheet file format for LibreOffice. Please export as csv before import)', 'rs-csv-importer' );
 		echo '</p>';
 		wp_import_upload_form( add_query_arg('step', 1) );
 	}
@@ -103,21 +105,28 @@ class RS_CSV_Importer extends WP_Importer {
 	* @param bool $is_update
 	* @return int|false Saved post id. If failed, return false.
 	*/
-	function save_post($post,$meta,$terms,$thumbnail,$is_update) {
+	public static function save_post($post,$meta,$terms,$thumbnail,$is_update) {
 		$ph = new wp_post_helper($post);
 		
 		foreach ($meta as $key => $value) {
+			$is_cfs = 0;
 			$is_acf = 0;
-			if (function_exists('get_field_object')) {
-				if (strpos($key, 'field_') === 0) {
-					$fobj = get_field_object($key);
-					if (is_array($fobj) && isset($fobj['key']) && $fobj['key'] == $key) {
-						$ph->add_field($key,$value);
-						$is_acf = 1;
+			$cfs_prefix = 'cfs_';
+			if (strpos($key, $cfs_prefix) === 0) {
+				$ph->add_cfs_field( substr($key, strlen($cfs_prefix)), $value );
+				$is_cfs = 1;
+			} else {
+				if (function_exists('get_field_object')) {
+					if (strpos($key, 'field_') === 0) {
+						$fobj = get_field_object($key);
+						if (is_array($fobj) && isset($fobj['key']) && $fobj['key'] == $key) {
+							$ph->add_field($key,$value);
+							$is_acf = 1;
+						}
 					}
 				}
 			}
-			if (!$is_acf)
+			if (!$is_acf && !$is_cfs)
 				$ph->add_meta($key,$value,true);
 		}
 
@@ -169,7 +178,7 @@ class RS_CSV_Importer extends WP_Importer {
 					if (post_type_exists($post_type)) {
 						$post['post_type'] = $post_type;
 					} else {
-						$error->add( 'post_type_exists', sprintf(__('The post type %s is not exists. Please check your csv data.', 'rs-csv-importer'), $post_type) );
+						$error->add( 'post_type_exists', sprintf(__('Invalid post type "%s".', 'rs-csv-importer'), $post_type) );
 					}
 				} else {
 					echo __('Note: Please include post_type value if that is possible.', 'rs-csv-importer').'<br>';
@@ -187,7 +196,7 @@ class RS_CSV_Importer extends WP_Importer {
 							$post['ID'] = $post_id;
 							$is_update = true;
 						} else {
-							$error->add( 'post_type_check', sprintf(__('The post id %d is exists, but post types does not match.', 'rs-csv-importer'), $post_id) );
+							$error->add( 'post_type_check', sprintf(__('The post type value from your csv file does not match the existing data in your database. post_id: %d, post_type(csv): %s, post_type(db): %s', 'rs-csv-importer'), $post_id, $post_type, $post_exist->post_type) );
 						}
 					}
 				}
@@ -254,7 +263,7 @@ class RS_CSV_Importer extends WP_Importer {
 					$post['menu_order'] = $menu_order;
 				}
 				
-				// (string, comma divided) slug of post categories
+				// (string, comma separated) slug of post categories
 				$post_category = $h->get_data($this,$data,'post_category');
 				if ($post_category) {
 					$categories = preg_split("/,+/", $post_category);
@@ -263,13 +272,10 @@ class RS_CSV_Importer extends WP_Importer {
 					}
 				}
 				
-				// (string, comma divided) name of post tags
+				// (string, comma separated) name of post tags
 				$post_tags = $h->get_data($this,$data,'post_tags');
 				if ($post_tags) {
-					$tags = preg_split("/,+/", $post_tags);
-					if ($tags) {
-						$post['post_tags'] = $tags;
-					}
+					$post['post_tags'] = $post_tags;
 				}
 				
 				// (string) post thumbnail image uri
@@ -323,9 +329,29 @@ class RS_CSV_Importer extends WP_Importer {
 				 */
 				$tax = apply_filters( 'really_simple_csv_importer_save_tax', $tax, $post, $is_update );
 				
-				if (!$error->get_error_codes()) {
+				/**
+				 * Option for dry run
+				 *
+				 * @param bool false
+				 */
+				$dry_run = apply_filters( 'really_simple_csv_importer_dry_run', false );
+				
+				if (!$error->get_error_codes() && $dry_run == false) {
+					
+					/**
+					 * Get Alternative Importer Class name.
+					 *
+					 * @param string Class name to override Importer class. Default to null (do not override).
+					 */
+					$class = apply_filters( 'really_simple_csv_importer_class', null );
+					
 					// save post data
-					$result = $this->save_post($post,$meta,$tax,$post_thumbnail,$is_update);
+					if ($class && class_exists($class,false)) {
+						$result = $class::save_post($post,$meta,$tax,$post_thumbnail,$is_update);
+					} else {
+						$result = self::save_post($post,$meta,$tax,$post_thumbnail,$is_update);
+					}
+					
 					if ($result) {
 						echo esc_html(sprintf(__('Processing "%s" done.', 'rs-csv-importer'), $post_title));
 					} else {
