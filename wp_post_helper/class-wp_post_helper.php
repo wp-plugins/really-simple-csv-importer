@@ -34,11 +34,14 @@ class wp_post_helper {
 
 	private $postid = false;
 	private $attachment_id = array();
+	
+	private $is_insert = true;
 
 	private $tags   = array();	
 	private $medias = array();
 	private $metas  = array();
-	private $fields = array();
+	private $acf_fields = array();
+	private $cfs_fields = array();
 	private $media_count = 0;
 	private $terms  = array();
 
@@ -64,13 +67,14 @@ class wp_post_helper {
 		$this->tags   = array();
 		$this->medias = array();
 		$this->metas  = array();
-		$this->fields = array();
+		$this->acf_fields = array();
+		$this->cfs_fields = array();
 		$this->media_count = 0;
 
 		if (is_numeric($args)) {
 			$post = get_post(intval($args));
 			if ($post && isset($post->ID) && !is_wp_error($post)) {
-				$this->post_id = $post->ID;
+				$this->postid = $post->ID;
 				$this->post = $post;
 				return true;
 			} else {
@@ -97,10 +101,11 @@ class wp_post_helper {
 			$post_id = isset($args['ID']) ? $args['ID'] : $args['post_id'];
 			$post = get_post($post_id, 'ARRAY_A');
 			if (isset($post['ID'])) {
-				$this->post_id  = $post_id;
+				$this->postid  = $post_id;
 				$this->post->ID = $post_id;
 				unset($post['ID']);
 				$this->set($post);
+				$this->is_insert = false;
 			}
 			unset($post);
 		}
@@ -118,11 +123,7 @@ class wp_post_helper {
 		$this->post = $post;
 
 		if (isset($args['post_tags'])) {
-			$this->add_tags(
-				is_array($args['post_tags'])
-				? $args['post_tags']
-				: explode(',', $args['post_tags'])
-				);
+			$this->add_tags($args['post_tags']);
 		}
 
 		return true;
@@ -130,21 +131,7 @@ class wp_post_helper {
 
 	// Add Post
 	public function insert(){
-		if (!isset($this->post))
-			return false;
-
-		$this->postid   = 0;
-		$this->post->ID = 0;
-		$postid = wp_insert_post($this->post);
-		if ($postid && !is_wp_error($postid)) {
-			$this->postid   = $postid;
-			$this->post->ID = $postid;
-			return $this->add_related_meta($postid) ? $postid : false;
-		} else {
-			$this->postid   = $postid;
-			$this->post->ID = 0;
-			return false;
-		}
+		return $this->update();
 	}
 
 	// Update Post
@@ -152,10 +139,12 @@ class wp_post_helper {
 		if (!isset($this->post))
 			return false;
 
-		$postid = 
-			$this->postid
-			? wp_update_post($this->post)
-			: wp_insert_post($this->post);
+		if ($this->is_insert) {
+			$postid = wp_insert_post($this->post);
+		} else {
+			$postid = wp_update_post($this->post);
+		}
+		
 		if ($postid && !is_wp_error($postid)) {
 			$this->postid   = $postid;
 			$this->post->ID = $postid;
@@ -200,8 +189,14 @@ class wp_post_helper {
 		$this->metas = array();
 
 		// add ACF Fields
-		foreach ($this->fields as $key => $val) {
+		foreach ($this->acf_fields as $key => $val) {
 			$this->add_field($key, $val);
+		}
+		$this->fields = array();
+
+		// add CFS Fields
+		if (count($this->cfs_fields) > 0) {
+			$this->save_cfs_fields();
 		}
 		$this->fields = array();
 
@@ -210,7 +205,7 @@ class wp_post_helper {
 
 	// Add Tag
 	public function add_tags($tags = array()){
-		$tags = is_array($tags) ? $tags : explode(',', $tags);
+		$tags = is_array($tags) ? $tags : explode( ',', trim( $tags, " \n\t\r\0\x0B," ) );
 		foreach ($tags as $tag) {
 			if (!empty($tag) && !array_search($tag, $this->tags))
 				$this->tags[] = $tag;
@@ -218,9 +213,9 @@ class wp_post_helper {
 		unset($tags);
 
 		if ($this->postid) {
-			$tags = implode(',', $this->tags);
+			$tags = $this->tags;
 			$this->tags = array();
-			return wp_add_post_tags($this->postid, $tags);
+			return wp_set_post_tags($this->postid, $tags, $this->is_insert);
 		}
 	}
 
@@ -234,7 +229,7 @@ class wp_post_helper {
 					$this->terms[$taxonomy][] = $term;
 			}
 		} else {
-			return wp_set_object_terms($this->postid, $terms, $taxonomy);
+			return wp_set_object_terms($this->postid, $terms, $taxonomy, $this->is_insert);
 		}
 	}
 
@@ -308,12 +303,43 @@ class wp_post_helper {
 		}
 	}
 
-	// Add Advanced Custom Field
+	// Add Advanced Custom Fields field
 	public function add_field($field_key, $val){
-		if (!$this->postid)
-			$this->fields[$field_key] = $val;
-		else
-			return $val ? update_field($field_key, $val, $this->postid) : false;
+		if (!function_exists('update_field')) {
+			$this->add_meta($field_key, $val);
+		} else {
+			if (!$this->postid) {
+				$this->acf_fields[$field_key] = $val;
+			} else {
+				return $val ? update_field($field_key, $val, $this->postid) : false;
+			}
+		}
+	}
+
+	// Add Custom Field Suite field
+	public function add_cfs_field($field_key, $val){
+		global $cfs;
+		if (!is_object($cfs) || !$cfs instanceof Custom_Field_Suite) {
+			$this->add_meta($field_key, $val);
+		} else {
+			if (!$this->postid) {
+				$this->cfs_fields[$field_key] = $val;
+			} else {
+				return $val ? $cfs->save(array($field_key=>$val), array('ID'=>$this->postid)) : false;
+			}
+		}
+	}
+	
+	// Save Custom Field Suite fields
+	public function save_cfs_fields() {
+		global $cfs;
+		if (is_object($cfs) && $cfs instanceof Custom_Field_Suite && $this->postid && !is_wp_error($this->postid)) {
+			$cfs->save($this->cfs_fields,array('ID'=>$this->postid));
+		} else {
+			foreach ($this->cfs_fields as $key => $val) {
+				$this->add_meta($key, $val);
+			}
+		}
 	}
 }
 
