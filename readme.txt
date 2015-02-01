@@ -2,8 +2,8 @@
 Contributors: hissy
 Tags: importer, csv, acf, cfs
 Requires at least: 3.6
-Tested up to: 4.0.1
-Stable tag: 1.0
+Tested up to: 4.1
+Stable tag: 1.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -216,12 +216,15 @@ Example: [gist](https://gist.github.com/hissy/fe0aa2582b78394a3a82)
 
 = really_simple_csv_importer_class =
 
-This filter provides availability to completely replace the `RS_CSV_Importer::save_post` method.
+This filter provides availability to completely replace the `RS_CSV_Importer#save_post` method.
 
-Example: [gist](https://gist.github.com/hissy/1ea54a46fd07be9f4334)
+Example: [gist](https://gist.github.com/hissy/199ad9be855ec9be1e54)
 
 == Changelog ==
 
+= 1.1 =
+* Enhancement: Support localization
+* Bug fixes
 = 1.0 =
 * Enhancement: Replace a helper class to more better one
 * Enhancement: Add action hook
