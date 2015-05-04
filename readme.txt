@@ -1,9 +1,9 @@
 === Really Simple CSV Importer ===
 Contributors: hissy
-Tags: importer, csv, acf, cfs
+Tags: importer, csv, acf, cfs, scf
 Requires at least: 3.6
-Tested up to: 4.1
-Stable tag: 1.1
+Tested up to: 4.2.1
+Stable tag: 1.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,7 @@ Alternative CSV Importer plugin. Simple and powerful, best for geeks.
 * Category support
 * Tag support
 * Custom field support
+* [Smart Custom Fields](https://wordpress.org/plugins/smart-custom-fields/) support
 * [Custom Field Suite](http://customfieldsuite.com/) support
 * [Advanced Custom Fields](http://www.advancedcustomfields.com/) support
 * Custom Taxonomy support
@@ -45,7 +46,8 @@ You can get example CSV files in `/wp-content/plugins/really-simple-csv-importer
 * `post_tags`: (string, comma separated) name of post tags
 * `tax_{taxonomy}`: (string, comma separated) Any field prefixed with `tax_` will be used as a custom taxonomy. Taxonomy must already exist. Entries are names or slugs of terms.
 * `{custom_field_key}`: (string) Any other column labels used as custom field
-* `cfs_{field_name}`: (string) If you would like to import data to custom fields set by Custom Field Suite, please add prefix `cfs_`
+* `cfs_{field_name}`: (string) If you would like to import data to custom fields set by Custom Field Suite, please add prefix `cfs_` to column header name.
+* `scf_{field_name}`: (string) If you would like to import data to custom fields set by Smart Custom Fields, please add prefix `scf_` to column header name.
 
 Note: Empty cells in the csv file means "keep it", not "delete it".  
 Note: To set the page template of a page, use custom field key of `_wp_page_template`.  
@@ -86,7 +88,7 @@ Yes. Please use ID field to specify the new post ID.
 
 Yes. You can use column names same as wp_post table, but if the column name does not match, it creates a custom field (post meta) data. Importing custom taxonomy is a bit more complicated, "tax_{taxonomy}" means, "tax_" is prefix, and {taxonomy} is name of custom taxonomy (not labels).
 
-Here is a example.
+Here is an example.
 
 **csv file**  
 "post_title","released","tax_actors"  
@@ -105,7 +107,9 @@ Because PHP cannot read multibyte text cells in some cases.
 
 = Can I insert multiple values to CFS or ACF fields like Select or Checkbox? =
 
-Yes. Please use `really_simple_csv_importer_save_meta` filter to make array data.
+Yes. Please create additional plugin and use `really_simple_csv_importer_save_meta` filter to make array data.
+
+[Add-on development example](https://gist.github.com/hissy/d2041481a72510b7f394)
 
 == How to debug import data == 
 
@@ -210,7 +214,7 @@ add_filter( 'really_simple_csv_importer_save_tax', 'really_simple_csv_importer_s
 
 This action provides availability to run some tasks after importing.
 
-Example: [gist](https://gist.github.com/hissy/fe0aa2582b78394a3a82)
+Example: Download image from remote url to custom field (Download from [gist](https://gist.github.com/hissy/0973a6a9977129a6ebd0))
 
 == How to customize the importing process entirely == 
 
@@ -218,10 +222,13 @@ Example: [gist](https://gist.github.com/hissy/fe0aa2582b78394a3a82)
 
 This filter provides availability to completely replace the `RS_CSV_Importer#save_post` method.
 
-Example: [gist](https://gist.github.com/hissy/199ad9be855ec9be1e54)
+Example: Update row based on a custom field ID/key match (Download from [gist](https://gist.github.com/hissy/199ad9be855ec9be1e54))
 
 == Changelog ==
 
+= 1.2 =
+* Enhancement: Smart Custom Fields support
+* Check if the provided post status is already registered
 = 1.1 =
 * Enhancement: Support localization
 * Bug fixes
