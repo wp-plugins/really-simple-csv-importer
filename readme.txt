@@ -2,8 +2,8 @@
 Contributors: hissy
 Tags: importer, csv, acf, cfs, scf
 Requires at least: 3.6
-Tested up to: 4.2.1
-Stable tag: 1.2
+Tested up to: 4.3
+Stable tag: 1.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,7 @@ You can get example CSV files in `/wp-content/plugins/really-simple-csv-importer
 * `post_title`: (string) The title of the post.
 * `post_excerpt`: (string) For all your post excerpt needs.
 * `post_status`: ('draft' or 'publish' or 'pending' or 'future' or 'private' or custom registered status) The status of the post. 'draft' is default.
+* `post_password`: (string) The password to protect the post. The password is limited to 20 characters.
 * `post_name`: (string) The slug of the post.
 * `post_parent`: (int) The post parent id. Used for page or hierarchical post type.
 * `menu_order`: (int)
@@ -48,10 +49,12 @@ You can get example CSV files in `/wp-content/plugins/really-simple-csv-importer
 * `{custom_field_key}`: (string) Any other column labels used as custom field
 * `cfs_{field_name}`: (string) If you would like to import data to custom fields set by Custom Field Suite, please add prefix `cfs_` to column header name.
 * `scf_{field_name}`: (string) If you would like to import data to custom fields set by Smart Custom Fields, please add prefix `scf_` to column header name.
+* `comment_status`: ('closed' or 'open') Default is the option 'default_comment_status', or 'closed'.
 
 Note: Empty cells in the csv file means "keep it", not "delete it".  
 Note: To set the page template of a page, use custom field key of `_wp_page_template`.  
 Note: If providing a post_status of 'future' you must specify the post_date in order for WordPress to know when to publish your post.
+Note: If the post_type value is `attachment`, you can use `post_thumbnail` field to define media URL or path.
 
 = Advanced Custom Fields plugin integrate =
 If advanced custom field key is exists, importer will trying to use [update_field](http://www.advancedcustomfields.com/resources/functions/update_field/) function instead of built-in add_post_meta function.  
@@ -208,6 +211,35 @@ function really_simple_csv_importer_save_tax_filter( $tax, $post, $is_update ) {
 add_filter( 'really_simple_csv_importer_save_tax', 'really_simple_csv_importer_save_tax_filter', 10, 3 );
 `
 
+= really_simple_csv_importer_save_thumbnail =
+
+This filter is applied to thumbnail data.
+
+Parameters:
+
+* `$post_thumbnail` - (string)(required) the thumbnail file path or distant URL
+* `$post` - (array) post data
+* `$is_update` - (bool)
+
+Example:
+
+`
+function really_simple_csv_importer_save_thumbnail_filter( $post_thumbnail, $post, $is_update ) {
+
+	// Import a local file from an FTP directory
+	if (!empty($post_thumbnail) && file_exists($post_thumbnail)) {
+		$upload_dir   = wp_upload_dir();
+		$target_path  = $upload_dir['path'] . DIRECTORY_SEPARATOR . basename($post_thumbnail);
+		if (copy($post_thumbnail, $target_path)) {
+			$post_thumbnail = $target_path;
+		}
+	}
+
+	return $post_thumbnail;
+}
+add_filter( 'really_simple_csv_importer_save_thumbnail', 'really_simple_csv_importer_save_thumbnail_filter', 10, 3 );
+`
+
 == How to customize the post data after importing to database ==
 
 = really_simple_csv_importer_post_saved =
@@ -226,6 +258,13 @@ Example: Update row based on a custom field ID/key match (Download from [gist](h
 
 == Changelog ==
 
+= 1.3 =
+* Some Enhancements (Thanks @piwi!)
+  * Attachment support
+  * Add "really_simple_csv_importer_save_thumbnail" Filter
+  * French translations
+* Support post date GMT
+* Support post password
 = 1.2 =
 * Enhancement: Smart Custom Fields support
 * Check if the provided post status is already registered

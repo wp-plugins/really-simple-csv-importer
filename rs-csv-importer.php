@@ -7,7 +7,7 @@ Author: Takuro Hishikawa
 Author URI: https://en.digitalcube.jp/
 Text Domain: really-simple-csv-importer
 License: GPL version 2 or later - http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
-Version: 1.2
+Version: 1.3
 */
 
 if ( !defined('WP_LOAD_IMPORTERS') )
@@ -109,7 +109,13 @@ class RS_CSV_Importer extends WP_Importer {
 			$post_tags = $post['post_tags'];
 			unset($post['post_tags']);
 		}
-		
+
+		// Special handling of attachments
+		if (!empty($thumbnail) && $post['post_type'] == 'attachment') {
+			$post['media_file'] = $thumbnail;
+			$thumbnail = null;
+		}
+
 		// Add or update the post
 		if ($is_update) {
 			$h = RSCSV_Import_Post_Helper::getByID($post['ID']);
@@ -220,6 +226,10 @@ class RS_CSV_Importer extends WP_Importer {
 				if ($post_date) {
 					$post['post_date'] = date("Y-m-d H:i:s", strtotime($post_date));
 				}
+				$post_date_gmt = $h->get_data($this,$data,'post_date_gmt');
+				if ($post_date_gmt) {
+					$post['post_date_gmt'] = date("Y-m-d H:i:s", strtotime($post_date_gmt));
+				}
 				
 				// (string) post status
 				$post_status = $h->get_data($this,$data,'post_status');
@@ -227,6 +237,12 @@ class RS_CSV_Importer extends WP_Importer {
     				if (in_array($post_status, $post_statuses)) {
     					$post['post_status'] = $post_status;
     				}
+				}
+				
+				// (string) post password
+				$post_password = $h->get_data($this,$data,'post_password');
+				if ($post_password) {
+    				$post['post_password'] = $post_password;
 				}
 				
 				// (string) post title
@@ -257,6 +273,12 @@ class RS_CSV_Importer extends WP_Importer {
 				$menu_order = $h->get_data($this,$data,'menu_order');
 				if ($menu_order) {
 					$post['menu_order'] = $menu_order;
+				}
+				
+				// (string) comment status
+				$comment_status = $h->get_data($this,$data,'comment_status');
+				if ($comment_status) {
+					$post['comment_status'] = $comment_status;
 				}
 				
 				// (string, comma separated) slug of post categories
@@ -322,7 +344,17 @@ class RS_CSV_Importer extends WP_Importer {
 				 * @param bool $is_update
 				 */
 				$tax = apply_filters( 'really_simple_csv_importer_save_tax', $tax, $post, $is_update );
-				
+				/**
+				 * Filter thumbnail URL or path.
+				 *
+				 * @since 1.3
+				 *
+				 * @param string $post_thumbnail (required)
+				 * @param array $post
+				 * @param bool $is_update
+				 */
+				$post_thumbnail = apply_filters( 'really_simple_csv_importer_save_thumbnail', $post_thumbnail, $post, $is_update );
+
 				/**
 				 * Option for dry run testing
 				 *
