@@ -147,6 +147,8 @@ class RS_CSV_Importer extends WP_Importer {
 
 	// process parse csv ind insert posts
 	function process_posts() {
+		ini_set("auto_detect_line_endings", true);
+
 		$h = new RS_CSV_Helper;
 
 		$handle = $h->fopen($this->file, 'r');
