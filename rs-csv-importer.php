@@ -185,8 +185,10 @@ class RS_CSV_Importer extends WP_Importer {
 				}
 				
 				// (int) post id
-				$post_id = $h->get_data($this,$data,'ID');
+				$dynamic_post_id = apply_filters_ref_array( 'really_simple_csv_importer_get_post_id', array(null, $data));
+				$post_id = ($dynamic_post_id) ? $dynamic_post_id : $h->get_data($this,$data,'ID');
 				$post_id = ($post_id) ? $post_id : $h->get_data($this,$data,'post_id');
+
 				if ($post_id) {
 					$post_exist = get_post($post_id);
 					if ( is_null( $post_exist ) ) { // if the post id is not exists
